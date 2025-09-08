@@ -1,28 +1,27 @@
-import asyncio
-import websockets
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import os
 
+app = FastAPI()
 clients = {}
 
-async def handler(ws, path):
-    # قراءة home_id و device_id من query string
-    query = dict(pair.split('=') for pair in path[2:].split('&'))
-    home_id = query.get("home_id")
-    device_id = query.get("device_id")
-    clients[home_id] = ws
-    print(f"{home_id} connected ({device_id})")
+@app.websocket("/")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
     try:
-        async for message in ws:
-            pass  # هنا يمكن معالجة الرسائل القادمة من Pi
-    finally:
+        # قراءة home_id و device_id من query string
+        query = dict(pair.split('=') for pair in ws.query_params._dict.items())
+        home_id = query.get("home_id", "unknown_home")
+        device_id = query.get("device_id", "unknown_device")
+        clients[home_id] = ws
+        print(f"{home_id} connected ({device_id})")
+        while True:
+            data = await ws.receive_text()  # يمكن استقبال الرسائل
+            # هنا يمكن معالجة الرسائل من Pi
+    except WebSocketDisconnect:
         clients.pop(home_id, None)
         print(f"{home_id} disconnected ({device_id})")
 
-async def main():
-    PORT = int(os.environ.get("PORT", 8765))  # Railway يعين PORT تلقائيًا
-    async with websockets.serve(handler, "0.0.0.0", PORT):
-        print(f"Relay Server is running on port {PORT}")
-        await asyncio.Future()  # يبقي السيرفر يعمل إلى ما لا نهاية
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
