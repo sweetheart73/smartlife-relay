@@ -10,12 +10,15 @@ async def handler(ws, path):
     print(f"{home_id} connected")
     try:
         async for message in ws:
-            pass  # هنا يمكنك معالجة الرسائل المرسلة من Pi
+            pass  # هنا يمكن معالجة الرسائل المرسلة من Pi
     finally:
         clients.pop(home_id, None)
         print(f"{home_id} disconnected")
 
-start_server = websockets.serve(handler, "0.0.0.0", 8765)
+async def main():
+    async with websockets.serve(handler, "0.0.0.0", 8765):
+        print("Relay Server is running on ws://0.0.0.0:8765")
+        await asyncio.Future()  # يبقي السيرفر يعمل إلى ما لا نهاية
 
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+if __name__ == "__main__":
+    asyncio.run(main())
