@@ -1,25 +1,40 @@
-import uvicorn
+# server.py
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import uvicorn
 
 app = FastAPI()
 
-@app.websocket("/")
-async def websocket_endpoint(ws: WebSocket):
-    await ws.accept()
+# كل جهاز متصل نخزّنه في dict
+connected_devices = {}
 
-    # قراءة الـ query params
-    device_id = ws.query_params.get("device_id", "unknown_device")
-    home_id = ws.query_params.get("home_id", "unknown_home")
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    # نقبل الاتصال
+    await websocket.accept()
 
-    print(f"✅ Device connected: {device_id} in {home_id}")
+    # قراءة الباراميترات من الـ Query String
+    query_params = websocket.query_params
+    device_id = query_params.get("device_id", "unknown")
+    home_id = query_params.get("home_id", "default")
+
+    device_key = f"{home_id}:{device_id}"
+    connected_devices[device_key] = websocket
+
+    print(f"✅ Device connected: {device_key}")
 
     try:
         while True:
-            data = await ws.receive_text()
-            print(f"📩 Message from {device_id}@{home_id}: {data}")
-            await ws.send_text(f"Echo: {data}")
+            # استقبل رسالة من العميل
+            data = await websocket.receive_text()
+            print(f"📩 [{device_key}] {data}")
+
+            # أرسل رد للعميل
+            await websocket.send_text(f"Echo from server: {data}")
+
     except WebSocketDisconnect:
-        print(f"❌ Device {device_id} in {home_id} disconnected")
+        print(f"❌ Device disconnected: {device_key}")
+        connected_devices.pop(device_key, None)
+
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run("server:app", host="0.0.0.0", port=8080)
