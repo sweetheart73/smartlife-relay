@@ -1,27 +1,22 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
 
 app = FastAPI()
-clients = {}
 
 @app.websocket("/")
 async def websocket_endpoint(ws: WebSocket):
+    # قبول الاتصال
     await ws.accept()
+
+    # قراءة الـ query params من URL
+    device_id = ws.query_params.get("device_id")
+    home_id = ws.query_params.get("home_id")
+
+    print(f"New device connected: {device_id} in {home_id}")
+
     try:
-        # قراءة home_id و device_id من query string
-        home_id = ws.query_params.get("home_id", "unknown_home")
-        device_id = ws.query_params.get("device_id", "unknown_device")
-        clients[home_id] = ws
-        print(f"{home_id} connected ({device_id})")
         while True:
             data = await ws.receive_text()
-            # هنا يمكن معالجة الرسائل من Pi
+            print(f"Message from {device_id}: {data}")
             await ws.send_text(f"Echo: {data}")
-    except WebSocketDisconnect:
-        clients.pop(home_id, None)
-        print(f"{home_id} disconnected ({device_id})")
-
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    except Exception as e:
+        print(f"Connection with {device_id} lost:", e)
